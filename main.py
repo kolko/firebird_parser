@@ -29,6 +29,11 @@ def read_pages_table(db_reader):
             else:
                 assert page['has_large_obj'] == 0
 
+            for pages_row in data_page.dpg_rpt:
+                page_number = pages_row.maybe_data[1]
+                print(page_number)
+                _page = db_reader.read_page(page_number)
+                print(_page)
 
 
 def main():

@@ -191,11 +191,86 @@ class DataPage(object):
     #         USHORT dpg_length;
     #     } dpg_rpt[1];
     # }
-    PP_PAGE_STRUCT = '<llHHHH'
-    PP_PAGE_SIZE = struct.calcsize(PP_PAGE_STRUCT)
+    DATA_PAGE_STRUCT = '<lHH'
+    DATA_PAGE_SIZE = struct.calcsize(DATA_PAGE_STRUCT)
 
     def __init__(self, db_file, pagenum=0):
-        return
         data = db_file.get_page_data(pagenum)
-        self.ppg_sequence, self.ppg_next, self.ppg_count, self.ppg_relation, self.ppg_min_space, _ = \
-            struct.unpack_from(self.PP_PAGE_STRUCT, data, offset=PageHeader.PAG_SIZE)
+        self.dpg_sequence, self.dpg_relation, self.dpg_count = \
+            struct.unpack_from(self.DATA_PAGE_STRUCT, data, offset=PageHeader.PAG_SIZE)
+        self.dpg_rpt = []
+        for n in range(self.dpg_count):
+            offset = PageHeader.PAG_SIZE + self.DATA_PAGE_SIZE + struct.calcsize('<HH') * n
+            (dpg_offset, dpg_length) = struct.unpack_from('<HH', data, offset=offset)
+            self.dpg_rpt.append(DataPageRecord(data, dpg_offset, dpg_length))
+        assert len(self.dpg_rpt) == self.dpg_count
+        # for x in self.dpg_rpt:
+        #     print(x.__dict__)
+
+
+class DataPageRecord(object):
+        # // Record header for unfragmented records.
+        # struct rhd {
+        #     SLONG rhd_transaction;
+        #     SLONG rhd_b_page;
+        #     USHORT rhd_b_line;
+        #     USHORT rhd_flags;
+        #     UCHAR rhd_format;
+        #     UCHAR rhd_data[1];
+        # };
+        #
+        # /* Record header for fragmented record */
+        # struct rhdf {
+        #     SLONG rhdf_transaction;
+        #     SLONG rhdf_b_page;
+        #     USHORT rhdf_b_line;
+        #     USHORT rhdf_flags;
+        #     UCHAR rhdf_format;
+        #     SLONG rhdf_f_page;
+        #     USHORT rhdf_f_line;
+        #     UCHAR rhdf_data[1];
+        # };
+    DATA_PAGE_RECORD_STRUCT = '<llHHB'
+    DATA_PAGE_SIZE = struct.calcsize(DATA_PAGE_RECORD_STRUCT)
+
+    def __init__(self, data, dpg_offset, dpg_length):
+        self.dpg_offset = dpg_offset
+        self.dpg_length = dpg_length
+        self.rhd_transaction, self.rhd_b_page, self.rhd_b_line, self.rhd_flags, self.rhd_format = \
+            struct.unpack_from(self.DATA_PAGE_RECORD_STRUCT, data, offset=dpg_offset)
+        self.rhd_deleted = 0x01 & self.rhd_flags
+        self.rhd_chain = 0x02 & self.rhd_flags
+        self.rhd_fragment = 0x04 & self.rhd_flags
+        self.rhd_incomplete = 0x08 & self.rhd_flags
+        self.rhd_blob = 0x10 & self.rhd_flags
+        self.rhd_stream_blob_or_rhd_delta = 0x20 & self.rhd_flags
+        self.rhd_large = 0x40 & self.rhd_flags
+        self.rhd_damaged = 0x80 & self.rhd_flags
+        self.rhd_gc_active = 0x100 & self.rhd_flags
+
+        data_offset = dpg_offset + self.DATA_PAGE_SIZE
+        data_count = dpg_length - self.DATA_PAGE_SIZE
+
+        if self.rhd_incomplete:
+            self.rhdf_f_page, self.rhdf_f_line = \
+                struct.unpack_from('<lH', data, offset=dpg_offset+self.DATA_PAGE_SIZE)
+            data_offset += struct.calcsize('<lH')
+            data_count -= struct.calcsize('<lH')
+
+        self.data_compressed = data[data_offset:data_offset+data_count]
+        self.data_uncompressed = bytes()
+        pos = 0
+        while pos < data_count:
+            n, = struct.unpack_from('<b', self.data_compressed, offset=pos)
+            # n = self.data_compressed[pos]
+            pos += 1
+            if n > 0:
+                self.data_uncompressed += self.data_compressed[pos:pos+n]
+                pos += n
+            elif n < 0:
+                self.data_uncompressed += (self.data_compressed[pos:pos+1] * abs(n))
+                pos += 1
+            else:
+                break
+        self.maybe_data = [x for x in self.data_uncompressed if x != 0]
+        # print(self.maybe_data)
