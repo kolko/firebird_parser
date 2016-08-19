@@ -17,7 +17,10 @@ class DBReader(object):
         elif header.pag_type == 5:
             payload = DataPage(self.db_file, number)
         else:
-            raise Exception('Unsupported page type {}'.format(header.pag_type))
+            class A(object):
+                pass
+            payload = A()
+            # raise Exception('Unsupported page type {}'.format(header.pag_type))
         payload.header = header
         return payload
 

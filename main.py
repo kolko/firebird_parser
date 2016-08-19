@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
+import struct
 from db_file import DBReader
 
 
 def read_pages_table(db_reader):
+    class PagesTableRow(object):
+        def __init__(self, p_page_number, p_relation_id, p_page_seq, p_page_type):
+            self.p_page_number = p_page_number
+            self.p_relation_id = p_relation_id
+            self.p_page_seq = p_page_seq
+            self.p_page_type = p_page_type
+    result = []
     pages_address = db_reader.db_header.hdr_PAGES
     pages_table_page_list = []
     pages_table_page = db_reader.read_page(pages_address)
@@ -30,15 +38,26 @@ def read_pages_table(db_reader):
                 assert page['has_large_obj'] == 0
 
             for pages_row in data_page.dpg_rpt:
-                page_number = pages_row.maybe_data[1]
-                print(page_number)
-                _page = db_reader.read_page(page_number)
-                print(_page)
+                # RDB$PAGE_NUMBER RDB$RELATION_ID RDB$PAGE_SEQUENCE RDB$PAGE_TYPE
+                data = pages_row.data_uncompressed
+                # print(data)
+                p_unknown, p_page_number, p_relation_id, p_page_seq, p_page_type= struct.unpack_from('<IIIIH', data, offset=0)
+                # print(p_page_number, p_relation_id, p_page_seq, p_page_type)
+                assert p_unknown == 0xf0, 'If assert, then here is sompthing interesting...'
+                result.append(PagesTableRow(p_page_number, p_relation_id, p_page_seq, p_page_type))
+            # exit(0)
+    return result
 
+def test_read_pages_table(db_reader):
+    pages_table = read_pages_table(db_reader)
+    for page_row in pages_table:
+        assert db_reader.read_page(page_row.p_page_number).header.pag_type == page_row.p_page_type
 
 def main():
     db_reader = DBReader('test_db.gdb')
-    read_pages_table(db_reader)
+    test_read_pages_table(db_reader)
+    pages_table = read_pages_table(db_reader)
+    print([x.__dict__ for x in pages_table])
 
 
 if __name__ == '__main__':
