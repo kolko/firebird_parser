@@ -14,24 +14,17 @@ class TableReader(object):
     RELATION_ID = None
     PAGE_NUMBER = None
 
-    def __init__(self, db_reader, pages_table=None, relations=None):
+    def __init__(self, db_reader):
         assert self.TABLE_NAME or self.RELATION_ID or self.PAGE_NUMBER
         self.db_reader = db_reader
-        self.pages_table = pages_table
-        self.relations = relations
-        if self.TABLE_NAME:
-            assert pages_table, 'Forget pages_table'
-            assert relations, 'Forget relations'
-        if self.RELATION_ID:
-            assert pages_table, 'Forget pages_table'
 
     def _find_relation(self):
-        relation_list = list(filter(lambda x: x.p_relation_name == self.TABLE_NAME, self.relations))
+        relation_list = list(filter(lambda x: x.p_relation_name == self.TABLE_NAME, self.db_reader.relations))
         assert len(relation_list) == 1
         return relation_list[0]
 
     def _find_pointer_page(self, relation_id):
-        pages = list(filter(lambda x: x.p_relation_id == relation_id, self.pages_table))
+        pages = list(filter(lambda x: x.p_relation_id == relation_id, self.db_reader.pages_table))
         pages_pointer = list(filter(lambda x: x.p_page_type == 4, pages))
         assert len(list(pages_pointer)) == 1
         return pages_pointer[0]
@@ -144,8 +137,8 @@ class Table_Rdb_Relations(TableReader):
 
     def parse_row_data(self, data):
         p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id = struct.unpack_from('<HHHHH', data, offset=28)
-        p_relation_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=38)).rstrip()
-        p_security_class = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=69)).rstrip()
+        p_relation_name = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=38)).rstrip()
+        p_security_class = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=69)).rstrip()
 
         # TODO: other fields
         RelationsTableRow = namedtuple('PDB_RELATIONS', 'p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class')
@@ -168,8 +161,8 @@ class Table_Rdb_Fields(TableReader):
 
     def parse_row_data(self, data):
         # TODO: parse all
-        p_field_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=4)).rstrip()
-        p_query_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=35)).rstrip()
+        p_field_name = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=4)).rstrip()
+        p_query_name = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=35)).rstrip()
         FieldsTableRow = namedtuple('RDB_FIELDS', 'p_field_name, p_query_name')
         return FieldsTableRow(p_field_name, p_query_name)
 
@@ -199,12 +192,12 @@ class Table_Rdb_Relation_Fields(TableReader):
     # RDB$COLLATION_ID                (RDB$COLLATION_ID) SMALLINT Nullable
 
     def parse_row_data(self, data):
-        p_field_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=4)).rstrip()
-        p_relation_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=35)).rstrip()
-        p_field_source = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=66)).rstrip()
-        p_query_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=97)).rstrip()
-        p_base_field = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=128)).rstrip()
-        p_edit_string = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*125), data, offset=159)).rstrip()
+        p_field_name = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=4)).rstrip()
+        p_relation_name = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=35)).rstrip()
+        p_field_source = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=66)).rstrip()
+        p_query_name = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=97)).rstrip()
+        p_base_field = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 31), data, offset=128)).rstrip()
+        p_edit_string = ''.join(x.decode(self.db_reader.db_charset) for x in struct.unpack_from('<' + ('c' * 125), data, offset=159)).rstrip()
         p_field_position, = struct.unpack_from('<h', data, offset=288) # TODO: Why 125 + 159 != 288
         # TODO: parse all fields
 

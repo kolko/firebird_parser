@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from header import *
+from table_reader import Table_RdbPages, Table_Rdb_Database, Table_Rdb_Relations
+from consts import charset_map
 
 
 class DBReader(object):
@@ -7,6 +9,9 @@ class DBReader(object):
         self.db_file = DbFile(filename)
         self.db_header = self.read_page(0)
         self.db_file.pagesize = self.db_header.hdr_page_size
+        self._pages_table = None
+        self._db_charset = None
+        self._relations = None
 
     def read_page(self, number):
         header = PageHeader(self.db_file, number)
@@ -23,6 +28,28 @@ class DBReader(object):
             # raise Exception('Unsupported page type {}'.format(header.pag_type))
         payload.header = header
         return payload
+
+    @property
+    def pages_table(self):
+        if not self._pages_table:
+            self._pages_table = list(Table_RdbPages(self).get_rows())
+        return self._pages_table
+
+    @property
+    def db_charset(self):
+        if not self._db_charset:
+            reader = Table_Rdb_Database(self)
+            rows = list(reader.get_rows())
+            assert len(rows) == 1
+            db_charset = rows[0].p_character_set_name
+            self._db_charset = charset_map[db_charset]
+        return self._db_charset
+
+    @property
+    def relations(self):
+        if not self._relations:
+            self._relations = list(Table_Rdb_Relations(self).get_rows())
+        return self._relations
 
 
 class DbFile(object):
