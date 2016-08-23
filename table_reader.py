@@ -151,9 +151,6 @@ class Table_Rdb_Relations(TableReader):
         p_security_class = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=69)).strip()
 
         # TODO: other fields
-        # print(data)
-        # print(p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class)
-
         RelationsTableRow = namedtuple('PDB_RELATIONS', 'p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class')
         return RelationsTableRow(p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class)
 
@@ -184,5 +181,35 @@ class Table_Rdb_Relation_Fields(TableReader):
     '''Table with list columns of each table. Required for parsing rows, i think'''
     TABLE_NAME = 'RDB$RELATION_FIELDS'
 
+    # RDB$FIELD_NAME                  (RDB$FIELD_NAME) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$RELATION_NAME               (RDB$RELATION_NAME) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$FIELD_SOURCE                (RDB$FIELD_NAME) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$QUERY_NAME                  (RDB$FIELD_NAME) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$BASE_FIELD                  (RDB$FIELD_NAME) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$EDIT_STRING                 (RDB$EDIT_STRING) VARCHAR(125) CHARACTER SET NONE Nullable
+    # RDB$FIELD_POSITION              (RDB$FIELD_POSITION) SMALLINT Nullable
+    # RDB$QUERY_HEADER                (RDB$QUERY_HEADER) BLOB segment 80, subtype TEXT CHARACTER SET UNICODE_FSS Nullable
+    # RDB$UPDATE_FLAG                 (RDB$SYSTEM_FLAG) SMALLINT Nullable
+    # RDB$FIELD_ID                    (RDB$FIELD_ID) SMALLINT Nullable
+    # RDB$VIEW_CONTEXT                (RDB$VIEW_CONTEXT) SMALLINT Nullable
+    # RDB$DESCRIPTION                 (RDB$DESCRIPTION) BLOB segment 80, subtype TEXT CHARACTER SET UNICODE_FSS Nullable
+    # RDB$DEFAULT_VALUE               (RDB$VALUE) BLOB segment 80, subtype BLR CHARACTER SET NONE Nullable
+    # RDB$SYSTEM_FLAG                 (RDB$SYSTEM_FLAG) SMALLINT Nullable
+    # RDB$SECURITY_CLASS              (RDB$SECURITY_CLASS) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$COMPLEX_NAME                (RDB$FIELD_NAME) CHAR(31) CHARACTER SET UNICODE_FSS Nullable
+    # RDB$NULL_FLAG                   (RDB$NULL_FLAG) SMALLINT Nullable
+    # RDB$DEFAULT_SOURCE              (RDB$SOURCE) BLOB segment 80, subtype TEXT CHARACTER SET UNICODE_FSS Nullable
+    # RDB$COLLATION_ID                (RDB$COLLATION_ID) SMALLINT Nullable
+
     def parse_row_data(self, data):
-        pass
+        p_field_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=4)).strip()
+        p_relation_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=35)).strip()
+        p_field_source = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=66)).strip()
+        p_query_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=97)).strip()
+        p_base_field = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=128)).strip()
+        p_edit_string = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*125), data, offset=159)).strip()
+        p_field_position, = struct.unpack_from('<h', data, offset=288) # TODO: Why 125 + 159 != 288
+        # TODO: parse all fields
+
+        RelationFieldsTableRow = namedtuple('RDB_RELATION_FIELDS', 'p_field_name, p_relation_name, p_field_source, p_query_name, p_base_field, p_edit_string, p_field_position')
+        return RelationFieldsTableRow(p_field_name, p_relation_name, p_field_source, p_query_name, p_base_field, p_edit_string, p_field_position)

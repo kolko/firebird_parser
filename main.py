@@ -20,6 +20,8 @@ def main():
 
     # print(list(Table_Rdb_Formats(db_reader, pages_table, relations).get_rows()))
     # print(list(Table_Rdb_Fields(db_reader, pages_table, relations).get_rows()))
+    print(list(Table_Rdb_Relation_Fields(db_reader, pages_table, relations).get_rows()))
+
 
 if __name__ == '__main__':
     main()
