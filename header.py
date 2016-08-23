@@ -206,8 +206,6 @@ class DataPage(object):
             (dpg_offset, dpg_length) = struct.unpack_from('<HH', data, offset=offset)
             self.dpg_rpt.append(DataPageRecord(data, dpg_offset, dpg_length))
         assert len(self.dpg_rpt) == self.dpg_count
-        # for x in self.dpg_rpt:
-        #     print(x.__dict__)
 
 
 class DataPageRecord(object):
@@ -240,31 +238,40 @@ class DataPageRecord(object):
         self.dpg_length = dpg_length
         self.rhd_transaction, self.rhd_b_page, self.rhd_b_line, self.rhd_flags, self.rhd_format = \
             struct.unpack_from(self.DATA_PAGE_RECORD_STRUCT, data, offset=dpg_offset)
-        self.rhd_deleted = 0x01 & self.rhd_flags
-        self.rhd_chain = 0x02 & self.rhd_flags
-        self.rhd_fragment = 0x04 & self.rhd_flags
-        self.rhd_incomplete = 0x08 & self.rhd_flags
-        self.rhd_blob = 0x10 & self.rhd_flags
-        self.rhd_stream_blob_or_rhd_delta = 0x20 & self.rhd_flags
-        self.rhd_large = 0x40 & self.rhd_flags
-        self.rhd_damaged = 0x80 & self.rhd_flags
-        self.rhd_gc_active = 0x100 & self.rhd_flags
+        self.rhd_deleted = 0x01 & self.rhd_flags and 1
+        self.rhd_chain = 0x02 & self.rhd_flags and 1
+        self.rhd_fragment = 0x04 & self.rhd_flags and 1
+        self.rhd_incomplete = 0x08 & self.rhd_flags and 1
+        self.rhd_blob = 0x10 & self.rhd_flags and 1
+        self.rhd_stream_blob_or_rhd_delta = 0x20 & self.rhd_flags and 1
+        self.rhd_large = 0x40 & self.rhd_flags and 1
+        self.rhd_damaged = 0x80 & self.rhd_flags and 1
+        self.rhd_gc_active = 0x100 & self.rhd_flags and 1
 
         data_offset = dpg_offset + self.DATA_PAGE_SIZE
         data_count = dpg_length - self.DATA_PAGE_SIZE
 
-        if self.rhd_incomplete:
+        if self.rhd_fragment:
+        # if self.rhd_incomplete:
             self.rhdf_f_page, self.rhdf_f_line = \
-                struct.unpack_from('<lH', data, offset=dpg_offset+self.DATA_PAGE_SIZE)
+                struct.unpack_from('<lH', data, offset=data_offset)
             data_offset += struct.calcsize('<lH')
             data_count -= struct.calcsize('<lH')
 
         self.data_compressed = data[data_offset:data_offset+data_count]
+        if self.rhd_blob:
+            # TODO: maybe wrong
+            self.data_uncompressed = self.data_compressed
+            return
+
+        if self.rhd_incomplete:
+            # Becose decompression goes bad
+            return
+
         self.data_uncompressed = bytes()
         pos = 0
         while pos < data_count:
             n, = struct.unpack_from('<b', self.data_compressed, offset=pos)
-            # n = self.data_compressed[pos]
             pos += 1
             if n > 0:
                 self.data_uncompressed += self.data_compressed[pos:pos+n]
@@ -273,6 +280,5 @@ class DataPageRecord(object):
                 self.data_uncompressed += (self.data_compressed[pos:pos+1] * abs(n))
                 pos += 1
             else:
+                assert len(x for x in self.data_compressed[pos:] if x != 0) == 0, 'Got zero, but have more data in buffer'
                 break
-        self.maybe_data = [x for x in self.data_uncompressed]
-        # print(self.maybe_data)

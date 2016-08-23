@@ -74,7 +74,30 @@ class TableReader(object):
                     assert page['has_large_obj'] == 0
 
                 for pages_row in data_page.dpg_rpt:
+                    if pages_row.rhd_blob or \
+                        pages_row.rhd_stream_blob_or_rhd_delta:
+                            continue
+
+                    if pages_row.rhd_incomplete:
+                        continue
+
                     data = pages_row.data_uncompressed
+                    if pages_row.rhd_fragment:
+                        continue
+
+                    # while pages_row.rhd_fragment:
+                    #     _p = self.db_reader.read_page(pages_row.rhdf_f_page)
+                    #     print(pages_row.rhdf_f_page, pages_row.rhdf_f_line)
+                    #     pages_row = _p.dpg_rpt[pages_row.rhdf_f_line]
+                    #     print(data)
+                    #     data += pages_row.data_uncompressed
+                    #     print(data)
+                    #     print()
+                    #     # exit(0)
+
+                    # TODO: know why data is empty
+                    if not data:
+                        continue
                     # HACK, becose sometimes we cant parse row and return Null
                     row = self.parse_row_data(data)
                     if row:
@@ -95,7 +118,7 @@ class Table_RdbPages(TableReader):
         assert p_unknown == 0xf0, 'If assert, then here is sompthing interesting...'
 
         # Test
-        self.db_reader.read_page(p_page_number).header.pag_type == p_page_type
+        # self.db_reader.read_page(p_page_number).header.pag_type == p_page_type
 
         PagesTableRow = namedtuple('RDB_PAGES', 'p_page_number, p_relation_id, p_page_seq, p_page_type')
         return PagesTableRow(p_page_number, p_relation_id, p_page_seq, p_page_type)
@@ -123,14 +146,13 @@ class Table_Rdb_Relations(TableReader):
     RELATION_ID = 6
 
     def parse_row_data(self, data):
-        #TODO: remove hack
-        if len(data) < 100:
-            return
         p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id = struct.unpack_from('<HHHHH', data, offset=28)
         p_relation_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=38)).strip()
         p_security_class = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=69)).strip()
 
         # TODO: other fields
+        # print(data)
+        # print(p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class)
 
         RelationsTableRow = namedtuple('PDB_RELATIONS', 'p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class')
         return RelationsTableRow(p_relation_id, p_system_flag, p_dbkey_length, p_format, p_field_id, p_relation_name, p_security_class)
@@ -140,9 +162,6 @@ class Table_Rdb_Formats(TableReader):
     TABLE_NAME = 'RDB$FORMATS'
 
     def parse_row_data(self, data):
-        # TODO: remove hack
-        if not data:
-            return
         p_relation_id, p_format = struct.unpack_from('<HH', data, offset=5)
         # TODO parse blob
         blob = data[9:]
@@ -154,10 +173,16 @@ class Table_Rdb_Fields(TableReader):
     TABLE_NAME = 'RDB$FIELDS'
 
     def parse_row_data(self, data):
-        if not data:
-            return
         # TODO: parse all
         p_field_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=4)).strip()
         p_query_name = ''.join(x.decode(self.db_reader.charset) for x in struct.unpack_from('<'+('c'*31), data, offset=35)).strip()
         FieldsTableRow = namedtuple('RDB_FIELDS', 'p_field_name, p_query_name')
         return FieldsTableRow(p_field_name, p_query_name)
+
+
+class Table_Rdb_Relation_Fields(TableReader):
+    '''Table with list columns of each table. Required for parsing rows, i think'''
+    TABLE_NAME = 'RDB$RELATION_FIELDS'
+
+    def parse_row_data(self, data):
+        pass
