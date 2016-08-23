@@ -2,13 +2,15 @@
 import struct
 from db_file import DBReader
 from table_reader import *
+from consts import charset_map
 
 
 def get_db_codepage(db_reader, pages_table):
     reader = Table_Rdb_Database(db_reader, pages_table)
     rows = list(reader.get_rows())
     assert len(rows) == 1
-    return rows[0].p_character_set_name
+    db_charset = rows[0].p_character_set_name
+    return charset_map[db_charset]
 
 def main():
     db_reader = DBReader('test_db.gdb')
